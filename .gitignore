@@ -1,0 +1,5 @@
+.env
+*.db
+traces.jsonl
+eval_traces.jsonl
+__pycache__/

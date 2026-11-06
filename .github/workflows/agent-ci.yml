@@ -1,0 +1,18 @@
+name: agent-ci
+on: [pull_request]
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest -q
+      - name: Golden-set evals (offline, deterministic)
+        run: python -m evals.run_evals
+        env: { RETAILCO_OFFLINE: "1" }
+      - name: Golden-set evals (live models + LLM judge)
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: python -m evals.run_evals
+        env: { ANTHROPIC_API_KEY: "${{ secrets.ANTHROPIC_API_KEY }}" }
