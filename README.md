@@ -13,6 +13,7 @@ Programme (web edition): https://claude.ai/artifact/VX3emZwS8hyJr6z1bLtx1e
 | Textbook: *Build a Production AI Agent with Claude Code* | [PDF](docs/book/Build-a-Production-AI-Agent.pdf) | [HTML](docs/book/Build-a-Production-AI-Agent.html) | Throughout; one module per session |
 | Case study: *RetailCo: Automating the Front Line* | [PDF](docs/case/RetailCo-Case-Study.pdf) | [HTML](docs/case/RetailCo-Case-Study.html) | Before Day 1 |
 | Case analysis and strategy evaluation | [PDF](docs/case/RetailCo-Case-Analysis.pdf) | [HTML](docs/case/RetailCo-Case-Analysis.html) | After the Day 2 strategy session |
+| Instructor handbook (16 two-hour sessions) | [PDF](docs/instructor/Instructor-Handbook.pdf) | [HTML](docs/instructor/Instructor-Handbook.html) | Instructors only: contains the teaching note, model answers and the case epilogue. Participants, please don't read it before the programme ends |
 
 GitHub shows a preview of the PDFs. To read an HTML file, download it (the **Download raw file** button) and open it in your browser; each one is a single self-contained file with light and dark themes.
 
