@@ -677,6 +677,8 @@ body.print{background:#FFFFFF;font-size:11pt;line-height:1.58;-webkit-print-colo
 <li><b>Checkpoint and summary.</b> Questions with model answers, and the points to carry forward.</li>
 </ol>
 
+<div class="callout note"><span class="callout-label">Teaching this programme</span><p>A companion instructor handbook sets out the programme as sixteen two-hour sessions, with a script for each session, the case teaching note, model answers, rubrics and cheat sheets. It is in the repository under <code>docs/instructor/</code>.</p></div>
+
 <h3 class="sec"><span class="sec-num">0.4</span>Conventions</h3>
 <div class="feature-grid">
 <div class="feat"><span class="feat-swatch sw-sum">Prompt</span><p>A navy-headed box holds a prompt to paste into Claude Code. Paste it as written, then review Claude's plan before you approve edits.</p></div>
@@ -1125,8 +1127,11 @@ uvicorn<span class="w"> </span>agent.api:app<span class="w"> </span>--reload<spa
 <tr><td>evals/golden.jsonl, run_evals.py</td><td><span class="layer-chip">L13</span></td><td>The golden set and the harness: route and content checks offline, plus an LLM judge live.</td></tr>
 <tr><td>strategy/model.py</td><td>Case</td><td>Lab 0: the strategy evaluation model. Reproduces every number in the case analysis (volume, carrier economics, option economics, NPV, scoring, break-even). Run <code>python -m strategy.model</code>.</td></tr>
 <tr><td>docs/problem-brief.md</td><td>Case</td><td>The Lab 1 problem brief drawn from the case.</td></tr>
+<tr><td>docs/case/</td><td>Case</td><td>The case study and the case analysis as PDF and HTML handouts. Read the case before the first session; read the analysis only after the strategy evaluation in Module 1.</td></tr>
+<tr><td>docs/book/</td><td>—</td><td>This programme as a PDF and a single self-contained HTML file, to read offline or print.</td></tr>
+<tr><td>docs/instructor/</td><td>—</td><td>The instructor handbook (PDF and HTML): sixteen two-hour sessions with scripts, case teaching notes and model answers. For instructors; participants should not read it before the programme ends.</td></tr>
 <tr><td>scripts/seed.py, chat.py</td><td>—</td><td>Create the sample database; chat with the agent in a terminal.</td></tr>
-<tr><td>.github/workflows/agent-ci.yml</td><td>—</td><td>CI: tests and offline evals on every pull request; live evals when the secret is set.</td></tr>
+<tr><td>.github/workflows/agent-ci.yml</td><td>—</td><td>CI: tests and offline evals on every push to <code>main</code> and every pull request; live evals when the secret is set. The result shows as a tick or cross beside each commit on GitHub.</td></tr>
 <tr><td>Dockerfile, pyproject.toml</td><td>—</td><td>Container image for deployment; dependencies and test settings.</td></tr>
 </tbody></table></div>
 
@@ -3710,7 +3715,11 @@ pass rate 100% (threshold 90%, mode=offline)
 <h3 class="sec"><span class="sec-num">13.3</span>Evaluation in CI</h3>
 <p>The workflow runs tests and offline evals on every pull request, so prompt and code changes are judged the same way. When the repository has an <code>ANTHROPIC_API_KEY</code> secret it also runs the live evals with the judge. A model upgrade is a pull request that changes one line in <code>config.py</code>; CI tells you whether to merge it.</p>
 <p class="listing-label"><span>Listing</span> <code>.github/workflows/agent-ci.yml</code></p><div class="hl"><pre><code><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">agent-ci</span>
-<span class="nt">on</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">pull_request</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">workflow_dispatch</span><span class="p p-Indicator">]</span>
+<span class="nt">on</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">push</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">branches</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">main</span><span class="p p-Indicator">]</span>
+<span class="w">  </span><span class="nt">pull_request</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">workflow_dispatch</span><span class="p">:</span>
 <span class="nt">jobs</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">test-and-eval</span><span class="p">:</span>
 <span class="w">    </span><span class="nt">runs-on</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ubuntu-latest</span>
