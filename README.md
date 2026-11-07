@@ -4,9 +4,17 @@ Reference build for the Solinexta AI programme **Build a Production AI Agent wit
 
 The programme starts with a business case, *RetailCo: Automating the Front Line*, and a strategy evaluation of five options. It then builds the option the analysis recommends: a customer-support agent with thirteen architectural layers, written and tested with Claude Code. Every lab in the programme ends at a state of this repository.
 
-- Programme (web edition): https://claude.ai/artifact/VX3emZwS8hyJr6z1bLtx1e
-- Case study: [`docs/case/RetailCo-Case-Study.pdf`](docs/case/RetailCo-Case-Study.pdf)
-- Case analysis: [`docs/case/RetailCo-Case-Analysis.pdf`](docs/case/RetailCo-Case-Analysis.pdf) (read after the strategy session)
+Programme (web edition): https://claude.ai/artifact/VX3emZwS8hyJr6z1bLtx1e
+
+## Documents
+
+| Document | PDF | HTML | When to read |
+|---|---|---|---|
+| Textbook: *Build a Production AI Agent with Claude Code* | [PDF](docs/book/Build-a-Production-AI-Agent.pdf) | [HTML](docs/book/Build-a-Production-AI-Agent.html) | Throughout; one module per session |
+| Case study: *RetailCo: Automating the Front Line* | [PDF](docs/case/RetailCo-Case-Study.pdf) | [HTML](docs/case/RetailCo-Case-Study.html) | Before Day 1 |
+| Case analysis and strategy evaluation | [PDF](docs/case/RetailCo-Case-Analysis.pdf) | [HTML](docs/case/RetailCo-Case-Analysis.html) | After the Day 2 strategy session |
+
+GitHub shows a preview of the PDFs. To read an HTML file, download it (the **Download raw file** button) and open it in your browser; each one is a single self-contained file with light and dark themes.
 
 ## Quick start
 
