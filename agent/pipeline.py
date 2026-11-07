@@ -93,6 +93,8 @@ class SupportAgent:
         else:
             text, facts, decision = await self._plan_and_execute(ctx, name, decision)
 
+        if req.channel.value == "chat" and not history:
+            text = f"{config.AI_DISCLOSURE}\n\n{text}"   # disclosure is code, not left to the model
         with span(tid, "L12.output") as a:
             body, subject = format_for_channel(text, req.channel)
             a["chars"] = len(body)

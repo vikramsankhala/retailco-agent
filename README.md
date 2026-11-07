@@ -5,7 +5,7 @@ Every lab in the programme ends at a state of this repository.
 
     pip install -e ".[dev]"
     python -m scripts.seed
-    python -m pytest -q              # 27 tests, no API key needed
+    python -m pytest -q              # 29 tests, no API key needed
     python -m evals.run_evals        # 12 golden cases, offline
     python -m scripts.chat CUST-4821 # talk to it in the terminal
 

@@ -24,6 +24,8 @@ HUMAN_REVIEW_BELOW_CONFIDENCE = 0.75
 MAX_LOOP_ITERATIONS = 3
 CONTEXT_SUMMARISE_AT = 0.60      # share of the context budget
 CONTEXT_BUDGET_TOKENS = 16_000
+AI_DISCLOSURE = ("You're chatting with RetailCo's AI assistant. "
+                 "Type 'person' at any time to reach our team.")   # Okafor condition 4
 TODAY = os.getenv("RETAILCO_TODAY", "2024-11-05")   # fixed date so the lab is reproducible
 
 

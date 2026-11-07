@@ -58,7 +58,7 @@ _RULES: list[tuple[str, str]] = [
     (r"\b(where|track|tracking|status|arrive|deliver|parcel|package|haven'?t (got|received))", "track_order"),
     (r"\b(size|colour|color|material|in stock|dimensions|warranty)\b", "product_query"),
     (r"\b(policy|opening hours|how long|do you)\b", "general_enquiry"),
-    (r"\b(manager|human|complain|lawyer|legal action|ombudsman)\b", "escalate"),
+    (r"\b(manager|human|person|complain|lawyer|legal action|ombudsman)\b", "escalate"),
 ]
 _POLICY_Q = re.compile(r"\b(what is|what's|how long|how do|do you|can i)\b.*\b(policy|take|work|allowed)\b")
 _FURIOUS = re.compile(r"\b(furious|disgusting|worst|outrageous|scam|legal action)\b|!!!", re.I)

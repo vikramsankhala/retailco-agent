@@ -69,3 +69,15 @@ def test_trace_has_a_span_per_layer(agent, tmp_path):
     for layer in ["L2.safety", "L3.understanding", "L4.memory", "L6.decision", "L7.planning",
                   "L8.queue", "L11.result_check", "L12.output"]:
         assert layer in names
+
+
+def test_ai_disclosure_on_first_reply(agent):
+    from agent import config
+    first = ask(agent, "Where is my order ORD-9821?", session="d1")
+    second = ask(agent, "Thanks, and what about ORD-9822?", session="d1")
+    assert first.text.startswith(config.AI_DISCLOSURE)
+    assert config.AI_DISCLOSURE not in second.text
+
+
+def test_typing_person_reaches_a_human(agent):
+    assert ask(agent, "person").route is Route.ESCALATE
