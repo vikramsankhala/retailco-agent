@@ -1,0 +1,36 @@
+# The agent with its supporting services (Module 18).
+#   docker compose up --build
+#   agent        http://localhost:8000      (demo chat at /, approvals at /staff)
+#   prometheus   http://localhost:9090
+#   grafana      http://localhost:3000      (dashboard "RetailCo agent"; demo login admin / admin)
+services:
+  agent:
+    build: .
+    ports: ["8000:8000"]
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}        # empty = offline mode
+      RETAILCO_SESSION_SECRET: ${RETAILCO_SESSION_SECRET:-change-me}
+      RETAILCO_DEMO: ${RETAILCO_DEMO:-1}                # demo sign-in; set to 0 anywhere real
+      REDIS_URL: redis://redis:6379/0
+    volumes: ["agent-state:/app/state"]               # database and traces survive restarts
+    depends_on: [redis]
+  redis:
+    image: redis:7.2-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes: ["./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+    depends_on: [agent]
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+    depends_on: [prometheus]
+volumes:
+  agent-state:

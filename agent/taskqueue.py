@@ -1,6 +1,8 @@
 """Layer 8 - Task queue: execute a validated plan reliably.
 
-* runs each dependency layer concurrently (asyncio.gather)
+* runs each dependency layer concurrently (asyncio.gather), at most
+  config.MAX_PARALLEL_TOOLS calls at once (a semaphore), so one plan cannot
+  flood a downstream API
 * tracks PENDING -> RUNNING -> COMPLETED | FAILED | SKIPPED per step
 * retries transient errors with exponential back-off and jitter, then dead-letters
 * skips steps whose conditions are false, and blocks steps whose inputs failed
@@ -17,6 +19,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Awaitable, Callable
 
+from . import config
 from .planner import Plan, Step, validate_plan
 from .tools import ToolError, TransientError
 
@@ -82,8 +85,10 @@ def conditions_met(step: Step, scope: dict) -> bool:
 
 
 class TaskQueue:
-    def __init__(self, dispatch: Dispatcher, max_attempts: int = 3, base_delay: float = 0.2):
+    def __init__(self, dispatch: Dispatcher, max_attempts: int = 3, base_delay: float = 0.2,
+                 max_parallel: int = config.MAX_PARALLEL_TOOLS):
         self.dispatch, self.max_attempts, self.base_delay = dispatch, max_attempts, base_delay
+        self.max_parallel = max_parallel
 
     async def _run_step(self, run: StepRun, scope: dict) -> None:
         run.state = State.RUNNING
@@ -118,7 +123,12 @@ class TaskQueue:
                     runs[step.id].state = State.SKIPPED
                 else:
                     ready.append(runs[step.id])
-            await asyncio.gather(*(self._run_step(r, scope) for r in ready))
+            gate = asyncio.Semaphore(self.max_parallel)
+
+            async def bounded(r):
+                async with gate:
+                    await self._run_step(r, scope)
+            await asyncio.gather(*(bounded(r) for r in ready))
             for r in ready:
                 if r.state is State.COMPLETED:
                     scope[r.step.id] = r.result

@@ -55,9 +55,23 @@ def check_grounding(reply: str, facts: dict) -> list[str]:
     return problems
 
 
+_LEAKS = re.compile(
+    r"mcp__|\b(issue_refund|request_approval|get_order_details|check_refund_eligibility|"
+    r"escalate_to_human|search_knowledge_base|send_email)\b|system prompt|my instructions|<document",
+    re.I)
+
+
+def check_leaks(reply: str) -> list[str]:
+    """OWASP LLM07 and LLM05: the reply must not expose internals or pass markup through."""
+    problems = [f"reply exposes internal detail: {m.group(0)!r}" for m in _LEAKS.finditer(reply)]
+    if re.search(r"<\s*(script|iframe|img|a)\b", reply, re.I):
+        problems.append("reply contains HTML markup")
+    return problems
+
+
 def verify(reply: str, facts: dict, run: RunResult | None = None) -> Verdict:
     policy = check_policy(facts)
     if policy:
         return Verdict(False, policy, 0.0, hard_stop=True)
-    problems = (check_run(run) if run else []) + check_grounding(reply, facts)
+    problems = (check_run(run) if run else []) + check_grounding(reply, facts) + check_leaks(reply)
     return Verdict(not problems, problems, 1.0 if not problems else 0.4)

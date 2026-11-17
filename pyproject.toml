@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "retailco-agent"
-version = "1.0.0"
+version = "1.3.0"
 description = "RetailCo customer-support agent: a 13-layer reference build with Claude"
 requires-python = ">=3.10"
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "httpx>=0.27"]
+prod = ["redis>=5"]
 
 [tool.setuptools.packages.find]
 include = ["agent*", "evals*", "scripts*", "strategy*"]

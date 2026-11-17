@@ -77,6 +77,49 @@ def screen_content(text: str) -> CheckResult:
     return CheckResult(Action.PASS)
 
 
+# --- 2b. Untrusted content: retrieved articles and tool results (Module 16) ----
+# Indirect prompt injection hides instructions in content the agent reads rather
+# than in what the customer types: a knowledge-base article, a carrier's status
+# text, an email body. That content is data. These patterns catch the common
+# shapes; anything flagged is quarantined or escalated, never passed to the model.
+UNTRUSTED_PATTERNS = [
+    r"(ignore|disregard|override|forget)\s+(all\s+|any\s+|the\s+|your\s+|previous\s+|prior\s+|above\s+)*"
+    r"(instructions|rules|polic(y|ies)|guidelines)",
+    r"\byou (must|should|will) now\b",
+    r"\b(always|automatically|immediately) (approve|issue|grant|process) (a |the |all |every )?refunds?",
+    r"\bnew (system )?instructions?\s*:",
+    r"\bsystem prompt\b",
+    r"\b(call|use|invoke|run) the [a-z_]+ tool\b",
+    r"\b(system|assistant|developer)\s*:",
+    r"<!--|-->",
+    r"[\u200b-\u200f\u2060\ufeff]",                         # zero-width characters hide text
+    r"https?://(?!(?:[\w-]+\.)*(?:" + "|".join(re.escape(d) for d in config.TRUSTED_LINK_DOMAINS) + r")\b)",
+]                                                           # last pattern: links outside trusted domains
+_UNTRUSTED = [re.compile(p, re.I) for p in UNTRUSTED_PATTERNS]
+
+
+def scan_untrusted(text: str) -> list[str]:
+    """Return the patterns that matched; an empty list means the text looks like plain data."""
+    return [p.pattern[:40] for p in _UNTRUSTED if p.search(text)]
+
+
+def scan_facts(facts: dict) -> list[str]:
+    """Scan every string in tool results (for example a carrier's free-text location)."""
+    found: list[str] = []
+
+    def walk(v, path):
+        if isinstance(v, str):
+            found.extend(f"{path}: {m}" for m in scan_untrusted(v))
+        elif isinstance(v, dict):
+            for k, x in v.items():
+                walk(x, f"{path}.{k}" if path else k)
+        elif isinstance(v, list):
+            for i, x in enumerate(v):
+                walk(x, f"{path}[{i}]")
+    walk(facts, "")
+    return found
+
+
 # --- 3. PII minimisation -----------------------------------------------------
 _CARD = re.compile(r"\b(?:\d[ -]?){13,16}\b")
 
@@ -103,10 +146,33 @@ class RateLimiter:
         return CheckResult(Action.PASS)
 
 
+class RedisRateLimiter:
+    """The same limit shared by every replica (Module 18). With two or more copies of the
+    agent behind a load balancer, an in-memory limiter lets a customer through once per copy.
+    Fixed one-hour windows: INCR a counter keyed by customer and hour, expire it after the hour."""
+
+    def __init__(self, client, limit: int = config.RATE_LIMIT_PER_HOUR, window_s: int = 3600, clock=time.time):
+        self.r, self.limit, self.window, self.clock = client, limit, window_s, clock
+
+    def check(self, key: str) -> CheckResult:
+        bucket = f"rl:{key}:{int(self.clock() // self.window)}"
+        n = self.r.incr(bucket)
+        if n == 1:
+            self.r.expire(bucket, self.window)
+        return CheckResult(Action.BLOCK, "rate_limited") if n > self.limit else CheckResult(Action.PASS)
+
+
+def default_limiter():
+    if config.REDIS_URL:
+        import redis   # optional dependency: pip install -e ".[prod]"
+        return RedisRateLimiter(redis.Redis.from_url(config.REDIS_URL))
+    return RateLimiter()
+
+
 # --- The pipeline -------------------------------------------------------------
 class SafetyPipeline:
     def __init__(self, limiter: RateLimiter | None = None):
-        self.limiter = limiter or RateLimiter()
+        self.limiter = limiter or default_limiter()
 
     def run(self, request: SupportRequest, session_token: str | None) -> SupportRequest:
         # Webhooks are authenticated by the integration's own signature upstream.

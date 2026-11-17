@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RetailCo approvals (demo)</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --muted:#5b6675; --line:#dde2e8; --ok:#1d6b45; --no:#8a2c2c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161c; --card:#1b2129; --ink:#e7ebf0; --muted:#9aa5b3; --line:#2c3440; --ok:#5fbf8f; --no:#e08585; } }
+  * { box-sizing:border-box } body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:760px; margin:0 auto; padding:16px; } h1 { font-size:18px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; margin:10px 0; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:center; }
+  .muted { color:var(--muted); font-size:14px; } button { font:inherit; border-radius:8px; padding:6px 12px; border:1px solid var(--line); cursor:pointer; color:#fff; }
+  .ok { background:var(--ok); border-color:var(--ok); } .no { background:var(--no); border-color:var(--no); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Refunds waiting for approval</h1>
+  <p class="muted">Demo reviewer: STAFF-tom (needs RETAILCO_DEMO=1). Decisions are saved before the refund runs, so a restart in between is safe.</p>
+  <div id="list" aria-live="polite"></div>
+</main>
+<script>
+let token;
+async function auth() { if (!token) { const r = await fetch('/demo/token/STAFF-tom'); if (!r.ok) throw new Error('Start the server with RETAILCO_DEMO=1'); token = (await r.json()).token; } return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+async function load() {
+  const list = document.getElementById('list');
+  try {
+    const items = await (await fetch('/approvals', { headers: await auth() })).json();
+    list.innerHTML = items.length ? '' : '<p class="muted">Nothing waiting.</p>';
+    for (const a of items) {
+      const d = document.createElement('div'); d.className = 'card';
+      // textContent, never innerHTML: stored values are data, even on a staff screen
+      const info = document.createElement('div'), head = document.createElement('strong'), sub = document.createElement('div');
+      head.textContent = `#${a.approval_id}`; sub.className = 'muted';
+      sub.textContent = `customer ${a.customer_id} · asked ${new Date(a.created_at).toLocaleString('en-GB')}`;
+      info.append(head, ` refund £${Number(a.payload.amount).toFixed(2)} for ${a.payload.order_id}`, sub);
+      d.appendChild(info);
+      const act = document.createElement('div');
+      for (const [label, approve, cls] of [['Approve', true, 'ok'], ['Decline', false, 'no']]) {
+        const b = document.createElement('button'); b.textContent = label; b.className = cls;
+        b.onclick = async () => { await fetch(`/approvals/${a.approval_id}/decision`, { method: 'POST', headers: await auth(), body: JSON.stringify({ approve }) }); load(); };
+        act.appendChild(b); act.append(' ');
+      }
+      d.appendChild(act); list.appendChild(d);
+    }
+  } catch (e) { list.textContent = e.message; }
+}
+load(); setInterval(load, 5000);
+</script>
+</body>
+</html>

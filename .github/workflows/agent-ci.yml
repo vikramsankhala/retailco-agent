@@ -2,6 +2,7 @@ name: agent-ci
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
 jobs:
@@ -14,10 +15,45 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install -e ".[dev]"
+      - name: Knowledge base approved (Module 16)
+        run: python -m scripts.kb_manifest --check
       - run: python -m pytest -q            # tests always run offline (see tests/conftest.py)
       - name: Golden-set evals (offline, deterministic)
         run: python -m evals.run_evals
         env: { RETAILCO_OFFLINE: "1" }
+      - name: Retrieval evals (Module 15)
+        run: python -m evals.run_retrieval_evals
+      - name: Red-team suite, OWASP Top 10 for LLM applications (Module 16)
+        run: python -m evals.run_redteam
+        env: { RETAILCO_OFFLINE: "1" }
+      - name: A/B regression gate (Module 18)
+        run: python -m evals.compare
+        env: { RETAILCO_OFFLINE: "1" }
+      - name: Service levels on the golden set (Module 18)
+        run: python -m scripts.slo_report eval_traces.jsonl
       - name: Golden-set evals (live models + LLM judge)
         if: env.ANTHROPIC_API_KEY != ''
         run: python -m evals.run_evals
+      - name: Dependency audit (advisory)
+        continue-on-error: true
+        run: pip install pip-audit && pip-audit
+  image:
+    # Builds the container on every push; publishes it only for version tags (v*).
+    needs: test-and-eval
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          tags: ghcr.io/${{ github.repository }}:${{ github.ref_name }}

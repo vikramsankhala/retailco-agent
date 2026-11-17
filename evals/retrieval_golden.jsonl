@@ -1,0 +1,26 @@
+{"id": "r01", "kind": "policy words", "q": "How long do refunds take to arrive?", "expect": "refunds", "must_have": "3 to 5 business days"}
+{"id": "r02", "kind": "policy words", "q": "What is the Late Delivery Guarantee?", "expect": "refunds", "must_have": "7 or more days"}
+{"id": "r03", "kind": "policy words", "q": "Can I change my delivery address?", "expect": "address", "must_have": "placed or packed"}
+{"id": "r04", "kind": "policy words", "q": "What is your returns policy?", "expect": "returns", "must_have": "30 days"}
+{"id": "r05", "kind": "policy words", "q": "How long does express delivery take?", "expect": "delivery", "must_have": "1 to 2 business days"}
+{"id": "r06", "kind": "policy words", "q": "How long is a Click and Collect order held in store?", "expect": "click-and-collect", "must_have": "10 days"}
+{"id": "r07", "kind": "policy words", "q": "What payment methods do you accept?", "expect": "payments", "must_have": "PayPal"}
+{"id": "r08", "kind": "policy words", "q": "How do I make a formal complaint?", "expect": "complaints", "must_have": "14 days"}
+{"id": "r09", "kind": "customer words", "q": "my parcel turned up smashed", "expect": "faulty-items", "must_have": "replacement or a full refund"}
+{"id": "r10", "kind": "customer words", "q": "can I get my money back on a different card", "expect": "payments", "must_have": "original payment method"}
+{"id": "r11", "kind": "customer words", "q": "I've moved house, can you send it to my new place?", "expect": "address", "must_have": "in transit"}
+{"id": "r12", "kind": "customer words", "q": "what's the last day I can order to get it before Christmas", "expect": "peak-season", "must_have": "18 December"}
+{"id": "r13", "kind": "customer words", "q": "can I pick it up from a shop instead", "expect": "click-and-collect", "must_have": "partner stores"}
+{"id": "r14", "kind": "customer words", "q": "I want to talk to a real human", "expect": "complaints", "must_have": "person"}
+{"id": "r15", "kind": "customer words", "q": "please wipe all the data you have on me", "expect": "privacy", "must_have": "privacy@retailco.example"}
+{"id": "r16", "kind": "customer words", "q": "half my stuff didn't come, one thing is missing", "expect": "faulty-items", "must_have": "second parcel"}
+{"id": "r17", "kind": "customer words", "q": "the bank said no when I tried to pay", "expect": "payments", "must_have": "declined"}
+{"id": "r18", "kind": "customer words", "q": "I want to send the whole lot back", "expect": "returns", "must_have": "prepaid label"}
+{"id": "r19", "kind": "typos", "q": "how long dose a refnud take", "expect": "refunds", "must_have": "3 to 5 business days"}
+{"id": "r20", "kind": "typos", "q": "chnage adress on my order", "expect": "address", "must_have": "placed or packed"}
+{"id": "r21", "kind": "typos", "q": "christmas delivry dates", "expect": "peak-season", "must_have": "18 December"}
+{"id": "r22", "kind": "typos", "q": "retrun policy for unused items", "expect": "returns", "must_have": "original packaging"}
+{"id": "r23", "kind": "no policy", "q": "do you sell garden furniture", "expect": null}
+{"id": "r24", "kind": "no policy", "q": "what is the meaning of life", "expect": null}
+{"id": "r25", "kind": "no policy", "q": "can you recommend a good restaurant in Leeds", "expect": null}
+{"id": "r26", "kind": "no policy", "q": "who won the football last night", "expect": null}

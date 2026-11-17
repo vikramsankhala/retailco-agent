@@ -3,3 +3,6 @@
 traces.jsonl
 eval_traces.jsonl
 __pycache__/
+build/
+dist/
+*.egg-info/

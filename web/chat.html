@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RetailCo assistant (demo)</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#1b2430; --muted:#5b6675; --line:#dde2e8; --accent:#1f4e79; --me:#e8eef6; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#12161c; --card:#1b2129; --ink:#e7ebf0; --muted:#9aa5b3; --line:#2c3440; --accent:#7fb0e0; --me:#22303f; } }
+  * { box-sizing:border-box } body { margin:0; font:16px/1.5 system-ui, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:720px; margin:0 auto; padding:16px; display:flex; flex-direction:column; min-height:100vh; gap:12px; }
+  header { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  h1 { font-size:18px; margin:0; } .who { color:var(--muted); font-size:14px; }
+  select, button, input { font:inherit; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); padding:8px 12px; }
+  button { background:var(--accent); color:#fff; border-color:var(--accent); cursor:pointer; } button:disabled { opacity:.5 }
+  #log { flex:1; display:flex; flex-direction:column; gap:10px; }
+  .msg { padding:10px 14px; border-radius:12px; max-width:85%; white-space:pre-wrap; background:var(--card); border:1px solid var(--line); }
+  .me { align-self:flex-end; background:var(--me); } .meta { font-size:12px; color:var(--muted); margin-top:4px; }
+  .status { font-size:13px; color:var(--muted); font-style:italic; min-height:20px; }
+  form { display:flex; gap:8px; } form input { flex:1; }
+  .note { font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>RetailCo assistant <span class="who">demo</span></h1>
+    <label class="who">Signed in as
+      <select id="customer"><option value="CUST-4821">Sarah (CUST-4821)</option><option value="CUST-1002">Arjun (CUST-1002)</option></select>
+    </label>
+  </header>
+  <p class="note">Demo only: sign-in uses <code>/demo/token</code>, which works only when the server runs with RETAILCO_DEMO=1. Try “Where is ORD-9821?”, “Refund ORD-9822 please, it never arrived”, or a question about Christmas delivery.</p>
+  <div id="log" aria-live="polite"></div>
+  <div class="status" id="status"></div>
+  <form id="f"><input id="text" autocomplete="off" placeholder="Type a message" required><button id="send">Send</button></form>
+</main>
+<script>
+const log = document.getElementById('log'), statusEl = document.getElementById('status');
+const session = 'web-' + Math.random().toString(36).slice(2);
+let token = null, tokenFor = null;
+async function signIn() {
+  const who = document.getElementById('customer').value;
+  if (token && tokenFor === who) return token;
+  const r = await fetch('/demo/token/' + who);
+  if (!r.ok) throw new Error('Demo sign-in is off. Start the server with RETAILCO_DEMO=1.');
+  token = (await r.json()).token; tokenFor = who; return token;
+}
+function bubble(text, me) { const d = document.createElement('div'); d.className = 'msg' + (me ? ' me' : ''); d.textContent = text; log.appendChild(d); d.scrollIntoView(); return d; }
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = document.getElementById('text'), text = input.value.trim(); if (!text) return;
+  input.value = ''; bubble(text, true); const btn = document.getElementById('send'); btn.disabled = true;
+  try {
+    const t = await signIn();
+    const res = await fetch('/chat/stream', { method:'POST', headers:{'Content-Type':'application/json', Authorization:'Bearer ' + t}, body: JSON.stringify({text, session_id: session}) });
+    if (!res.ok) { bubble((await res.json()).detail || 'Something went wrong.'); return; }
+    const reader = res.body.getReader(), dec = new TextDecoder(); let buf = '', out = null;
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i; while ((i = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, i); buf = buf.slice(i + 2);
+        const ev = (block.match(/^event: (.*)$/m) || [])[1], data = JSON.parse((block.match(/^data: (.*)$/m) || [])[1] || '{}');
+        if (ev === 'status') statusEl.textContent = data.label + '…';
+        if (ev === 'delta') { out = out || bubble(''); out.textContent += data.text; }
+        if (ev === 'done') { statusEl.textContent = ''; const m = document.createElement('div'); m.className = 'meta'; m.textContent = 'route: ' + data.route + (data.needs_human ? ' · with a person' : ''); out && out.appendChild(m); }
+        if (ev === 'error') { statusEl.textContent = ''; bubble(data.error); }
+      }
+    }
+  } catch (err) { bubble(err.message); } finally { btn.disabled = false; statusEl.textContent = ''; }
+});
+</script>
+</body>
+</html>

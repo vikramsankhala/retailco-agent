@@ -1,8 +1,9 @@
 """Layer 4 - Memory: short-term (context assembly), episodic (session turns),
 semantic (knowledge-base retrieval) and procedural (the system prompt, see reasoning.py).
 
-Retrieval uses BM25 so the lab runs with no embedding service. In production,
-swap KnowledgeBase.search for pgvector + an embedding model; the interface stays.
+KnowledgeBase is the Module 7 baseline: BM25 over paragraphs, no embedding service.
+Module 15 replaces it with retrieval.HybridRetriever behind the same search()
+interface (set RETAILCO_RETRIEVER=bm25 to compare the two).
 """
 from __future__ import annotations
 
@@ -69,15 +70,17 @@ class KnowledgeBase:
 
     def __init__(self, kb_dir: Path = config.KB_DIR, k1: float = 1.5, b: float = 0.75):
         self.k1, self.b = k1, b
+        from .kb_integrity import load_trusted_articles
         self.chunks: list[Chunk] = []
-        for path in sorted(Path(kb_dir).glob("*.md")):
+        articles, self.quarantined = load_trusted_articles(Path(kb_dir))
+        for source, text in articles:
             title = ""
-            for para in re.split(r"\n\s*\n", path.read_text(encoding="utf-8")):
+            for para in re.split(r"\n\s*\n", text):
                 para = para.strip()
                 if para.startswith("#"):          # a heading labels the paragraphs below it
                     title = para.lstrip("# ")
                 elif para:
-                    self.chunks.append(Chunk(path.stem, para, Counter(tokens(f"{title} {para}"))))
+                    self.chunks.append(Chunk(source, para, Counter(tokens(f"{title} {para}"))))
         self.avgdl = sum(sum(c.terms.values()) for c in self.chunks) / max(1, len(self.chunks))
         df = Counter(t for c in self.chunks for t in c.terms)
         n = len(self.chunks)
@@ -104,15 +107,17 @@ class AgentContext:
     request: SupportRequest
     intent: ParsedIntent
     history: list[dict]
-    docs: list[Chunk]
+    docs: list
     summary: str | None = None
+    retrieval: dict | None = None     # how the docs were found (Module 15), for the trace
 
     def render(self) -> str:
         parts = []
         if self.summary:
             parts.append(f"Summary of earlier conversation: {self.summary}")
         parts += [f"{t['role']}: {t['text']}" for t in self.history]
-        parts += [f"[policy:{d.source}] {d.text}" for d in self.docs]
+        # Retrieved text is reference data, never instructions: mark it as such (Module 16).
+        parts += [f'<document source="{d.source}" trust="reference">\n{d.text}\n</document>' for d in self.docs]
         return "\n".join(parts)
 
 
@@ -125,8 +130,12 @@ class MemoryModule:
 
     def assemble(self, req: SupportRequest, intent: ParsedIntent) -> AgentContext:
         history = self.sessions.history(req.session_id)
-        docs = self.kb.search(f"{intent.intent.replace('_', ' ')} {req.raw_text}")
-        ctx = AgentContext(req, intent, history, docs)
+        query = f"{intent.intent.replace('_', ' ')} {req.raw_text}"
+        if hasattr(self.kb, "retrieve"):
+            result = self.kb.retrieve(req.raw_text)
+            ctx = AgentContext(req, intent, history, result.passages, retrieval=result.trace())
+        else:
+            ctx = AgentContext(req, intent, history, self.kb.search(query))
         budget = config.CONTEXT_BUDGET_TOKENS * config.CONTEXT_SUMMARISE_AT
         if estimate_tokens(ctx.render()) > budget and len(history) > 4:
             ctx.summary = self.summarise(history[:-4])   # compress older turns, keep last 4 verbatim

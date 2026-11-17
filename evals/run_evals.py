@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -31,7 +32,7 @@ async def judge(text: str, reply: str, facts: dict) -> dict:
 async def run_case(case: dict) -> dict:
     conn = db.connect(":memory:")
     db.init_db(conn)
-    agent = SupportAgent(conn, tracer=Tracer(Path("eval_traces.jsonl")), retry_delay=0)
+    agent = SupportAgent(conn, tracer=Tracer(Path(os.getenv("EVAL_TRACES", "eval_traces.jsonl"))), retry_delay=0)
     req = adapters.from_chat({"text": case["text"], "session_id": case["id"]}, case["customer"])
     reply = await agent.handle(req, sign_session(case["customer"]))
     checks = {"route": reply.route.value == case["route"]}
@@ -43,7 +44,7 @@ async def run_case(case: dict) -> dict:
     return out
 
 
-def main(path: str = "evals/golden.jsonl") -> int:
+def main(path: str = "evals/golden.jsonl", as_json: bool = False) -> int:
     cases = [json.loads(l) for l in Path(path).read_text().splitlines() if l.strip()]
     results = [asyncio.run(run_case(c)) for c in cases]
     for r in results:
@@ -51,8 +52,11 @@ def main(path: str = "evals/golden.jsonl") -> int:
               f"contains={r['contains']} excludes={r['excludes']} {r.get('judge', '')}")
     score = sum(r["pass"] for r in results) / len(results)
     print(f"\npass rate {score:.0%} (threshold {THRESHOLD:.0%}, mode={'live' if config.LIVE else 'offline'})")
+    if as_json:
+        print("JSON " + json.dumps(results, default=str))
     return 0 if score >= THRESHOLD else 1
 
 
 if __name__ == "__main__":
-    sys.exit(main(*sys.argv[1:]))
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    sys.exit(main(*args, as_json="--json" in sys.argv))

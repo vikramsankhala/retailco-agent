@@ -66,6 +66,7 @@ def clarify_question(intent: ParsedIntent) -> str:
 
 def format_for_channel(text: str, channel: Channel) -> tuple[str, str | None]:
     """Return (body, subject)."""
+    text = re.sub(r"<[^>]{1,200}>", "", text)    # never pass markup to a channel (OWASP LLM05)
     if channel is Channel.SMS:
         plain = re.sub(r"[*_`#]|^- ", "", text, flags=re.M).replace("\n", " ")
         return (plain[:157] + "...") if len(plain) > 160 else plain, None

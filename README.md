@@ -27,11 +27,17 @@ source .venv/bin/activate            # Windows PowerShell: .venv\Scripts\Activat
 pip install -e ".[dev]"
 
 python -m scripts.seed               # create the sample database
-python -m pytest -q                  # 30 tests, no API key needed
-python -m evals.run_evals            # 12 golden-set cases, offline
+python -m pytest -q                  # 62 tests, no API key needed
+python -m evals.run_evals            # 15 golden-set cases, offline
+python -m evals.run_retrieval_evals  # retrieval: baseline versus each upgrade
+python -m evals.run_redteam          # 15 attacks mapped to the OWASP LLM Top 10
 python -m strategy.model             # Lab 0: the case's strategy evaluation
 python -m scripts.chat CUST-4821     # talk to the agent in your terminal
 ```
+
+To run the whole stack (agent, Redis, Prometheus, Grafana): `docker compose up --build`, then open
+http://localhost:8000 for the demo chat, http://localhost:8000/staff for approvals and
+http://localhost:3000 for the dashboard.
 
 Set `ANTHROPIC_API_KEY` to switch understanding, reasoning and model-generated plans from the offline fallbacks to Claude (Haiku for classification, Sonnet for reasoning and replies, Opus as the evaluation judge). Run the HTTP API with `uvicorn agent.api:app --reload` and open http://127.0.0.1:8000/docs.
 
@@ -53,6 +59,11 @@ Set `ANTHROPIC_API_KEY` to switch understanding, reasoning and model-generated p
 | 11 | 12 · Monitoring and wiring | L13 | `agent/telemetry.py`, `agent/pipeline.py`, `agent/api.py` |
 | — | 13 · Evaluate and red-team | — | `evals/run_evals.py`, `.github/workflows/agent-ci.yml` |
 | — | 14 · Deploy | — | `Dockerfile` |
+| 12 | 15 · Retrieval that holds up | L4 | `agent/retrieval.py`, `evals/run_retrieval_evals.py`, `data/kb/` |
+| 13 | 16 · Security across the layers | L2, L4, L9–L13 | `agent/kb_integrity.py`, `agent/privacy.py`, `evals/run_redteam.py` |
+| 14 | 17 · Long-running work | L1, L8, L9 | `agent/approvals.py`, `agent/api.py`, `web/` |
+| 15 | 18 · Operating in production | L13 | `agent/slo.py`, `agent/drift.py`, `evals/compare.py`, `docker-compose.yml`, `deploy/` |
+| — | Capstone | all | `docs/templates/`, `docs/adr/` |
 
 ## Rules that never break
 
@@ -64,6 +75,10 @@ These come from the risk conditions in the case (Exhibit 17) and are enforced in
 4. Every reply is checked: each amount and reference must appear in tool results.
 5. Customers are told on the first reply that they are talking to an AI assistant, and can type "person" to reach the team.
 6. `RETAILCO_KILL_SWITCH=1` stops every write action at once.
+7. Retrieved articles and tool results are data: anything instruction-like is quarantined or escalated.
+8. Knowledge-base articles load only if a person approved them (`data/kb/MANIFEST.sha256`).
+9. Approvals survive restarts and execute exactly once.
+10. Traces hold no personal data.
 
 ## Sample data
 

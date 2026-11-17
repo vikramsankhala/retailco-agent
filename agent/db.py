@@ -17,7 +17,8 @@ CREATE TABLE IF NOT EXISTS shipments (order_id TEXT PRIMARY KEY, carrier_status 
 CREATE TABLE IF NOT EXISTS refunds (refund_id TEXT PRIMARY KEY, order_id TEXT, amount REAL,
   idempotency_key TEXT UNIQUE, status TEXT, approved_by TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS approvals (approval_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  request_id TEXT, action TEXT, payload TEXT, status TEXT DEFAULT 'pending', reviewer TEXT);
+  request_id TEXT, action TEXT, payload TEXT, status TEXT DEFAULT 'pending', reviewer TEXT,
+  customer_id TEXT, created_at TEXT, decided_at TEXT, result TEXT);
 CREATE TABLE IF NOT EXISTS escalations (escalation_id INTEGER PRIMARY KEY AUTOINCREMENT,
   request_id TEXT, customer_id TEXT, reason TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS outbox (msg_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,14 +45,25 @@ SEED = {
 }
 
 
+# Columns added in Module 17. ALTER TABLE upgrades a database created by an earlier lab.
+MIGRATIONS = {"approvals": [("customer_id", "TEXT"), ("created_at", "TEXT"), ("decided_at", "TEXT"),
+                            ("result", "TEXT")]}
+
+
 def connect(path: Path | str | None = None) -> sqlite3.Connection:
-    conn = sqlite3.connect(path or config.DB_PATH)
+    # check_same_thread=False: the web server may serve a request on another thread.
+    conn = sqlite3.connect(path or config.DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db(conn: sqlite3.Connection, seed: bool = True) -> None:
     conn.executescript(SCHEMA)
+    for table, cols in MIGRATIONS.items():
+        have = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+        for name, kind in cols:
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
     if seed:
         for table, rows in SEED.items():
             marks = ",".join("?" * len(rows[0]))

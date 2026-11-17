@@ -11,17 +11,19 @@
 from __future__ import annotations
 
 import sqlite3
+import time
 
 from . import config, reasoning
 from . import tools as T
 from .memory import KnowledgeBase, MemoryModule, SessionStore
+from .retrieval import HybridRetriever
 from .output import clarify_question, compose_offline, format_for_channel
 from .planner import InvalidPlan, from_template, validate_plan
 from .router import decide
-from .safety import SafetyPipeline
+from .safety import SafetyPipeline, scan_facts
 from .schemas import AgentReply, Route, SupportRequest
 from .taskqueue import TaskQueue
-from .telemetry import Tracer, metrics
+from .telemetry import Tracer, metrics, observe_latency
 from .understanding import understand
 from .verifier import verify
 
@@ -32,7 +34,7 @@ class SupportAgent:
                  safety: SafetyPipeline | None = None, retry_delay: float = 0.2):
         self.conn = conn
         self.carrier = carrier or T.Carrier(conn)
-        self.kb = kb or KnowledgeBase()
+        self.kb = kb or (HybridRetriever() if config.RETRIEVER == "hybrid" else KnowledgeBase())
         self.memory = MemoryModule(SessionStore(conn), self.kb)
         self.tracer = tracer or Tracer()
         self.safety = safety or SafetyPipeline()
@@ -52,13 +54,41 @@ class SupportAgent:
             "escalate_to_human": lambda a: T.escalate_to_human(c, a["reason"]),
             "search_knowledge_base": lambda a: T.search_knowledge_base(self.kb, a["query"]),
         }
-        return table[tool](args)
+        result = table[tool](args)
+        # Tool results are untrusted data (Module 16): a carrier's free-text status could
+        # carry an injected instruction. Fail the step, so nothing downstream uses it.
+        if tool != "search_knowledge_base" and (found := scan_facts(result)):
+            metrics["untrusted_tool_output"] += 1
+            raise T.ToolError(f"untrusted content in {tool} result: {found[0]}")
+        return result
 
     def _name(self, customer_id: str) -> str:
         row = self.conn.execute("SELECT name FROM customers WHERE customer_id=?", (customer_id,)).fetchone()
         return row["name"] if row else "there"
 
     async def handle(self, req: SupportRequest, session_token: str | None = None) -> AgentReply:
+        started, meta = time.perf_counter(), {"intent": None, "context_tokens": 0}
+        reply = await self._handle(req, session_token, meta)   # meta is per request: safe under concurrency
+        ms = (time.perf_counter() - started) * 1000
+        observe_latency(ms)
+        self.tracer.event(reply.request_id, "request", ms, route=reply.route.value,
+                          needs_human=reply.needs_human, channel=reply.channel.value,
+                          intent=meta["intent"], est_cost_gbp=self._estimate_cost(reply, meta["context_tokens"]))
+        return reply
+
+    def _estimate_cost(self, reply: AgentReply, context_tokens: int) -> float:
+        """Rough model cost of this request had it run live (Module 18). Uses the example
+        prices in config; replace them with your contract prices before trusting the number."""
+        from .memory import estimate_tokens
+        ctx, out = context_tokens, estimate_tokens(reply.text)
+        calls = [(config.MODEL_FAST, ctx + 300, 80)]                      # understanding
+        if reply.route.value in ("plan", "direct"):
+            calls.append((config.MODEL_MAIN, ctx + 900, out))              # reasoning / compose
+        gbp = sum(config.PRICE_GBP_PER_MTOK[m]["in"] * i / 1e6 + config.PRICE_GBP_PER_MTOK[m]["out"] * o / 1e6
+                  for m, i, o in calls)
+        return round(gbp, 5)
+
+    async def _handle(self, req: SupportRequest, session_token: str | None, meta: dict) -> AgentReply:
         tid, span = req.request_id, self.tracer.span
         T.current_customer.set(req.customer_id)
         T.current_request.set(tid)
@@ -72,7 +102,10 @@ class SupportAgent:
             a.update(intent.model_dump())
         with span(tid, "L4.memory") as a:
             ctx = self.memory.assemble(req, intent)
-            a.update(turns=len(ctx.history), docs=[d.source for d in ctx.docs], summarised=bool(ctx.summary))
+            a.update(turns=len(ctx.history), docs=[d.source for d in ctx.docs], summarised=bool(ctx.summary),
+                     retrieval=ctx.retrieval)
+        from .memory import estimate_tokens
+        meta.update(intent=intent.intent, context_tokens=estimate_tokens(ctx.render()))
         with span(tid, "L6.decision") as a:
             decision = decide(ctx)
             a.update(route=decision.route.value, reason=decision.reason)

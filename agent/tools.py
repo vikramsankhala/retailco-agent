@@ -116,8 +116,19 @@ def issue_refund(conn, order_id: str, amount: float, idempotency_key: str,
 
 
 def request_approval(conn, action: str, payload: dict) -> dict:
-    cur = conn.execute("INSERT INTO approvals (request_id, action, payload) VALUES (?,?,?)",
-                       (current_request.get(), action, json.dumps(payload)))
+    """Park an action for a person to decide (Module 17: the decision survives restarts).
+
+    One open approval per customer and order: asking twice returns the first request.
+    """
+    customer = current_customer.get()
+    for row in conn.execute("SELECT approval_id, status, payload FROM approvals WHERE customer_id=? AND action=? "
+                            "AND status IN ('pending','approved')", (customer, action)):
+        if json.loads(row["payload"]).get("order_id") == payload.get("order_id"):
+            return {"approval_id": row["approval_id"], "status": row["status"], "replayed": True}
+    cur = conn.execute("INSERT INTO approvals (request_id, action, payload, customer_id, created_at) "
+                       "VALUES (?,?,?,?,?)",
+                       (current_request.get(), action, json.dumps(payload), customer,
+                        datetime.now(timezone.utc).isoformat()))
     conn.commit()
     return {"approval_id": cur.lastrowid, "status": "pending"}
 

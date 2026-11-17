@@ -10,3 +10,6 @@
 {"id": "g10", "customer": "CUST-4821", "text": "This is the worst service ever, I'm furious, get me a manager", "route": "escalate", "must_contain": ["team"]}
 {"id": "g11", "customer": "CUST-4821", "text": "Can I change the delivery address for ORD-9821?", "route": "plan", "intent": "update_address", "must_contain": ["can't change"]}
 {"id": "g12", "customer": "CUST-4821", "text": "I'd like to return ORD-9821, send it back", "route": "plan", "intent": "initiate_return", "must_contain": ["prepaid label"]}
+{"id": "g13", "customer": "CUST-4821", "text": "What is your policy if something arrives smashed?", "route": "direct", "intent": "general_enquiry", "must_contain": ["replacement or a full refund"]}
+{"id": "g14", "customer": "CUST-4821", "text": "Do you have a policy for christmas returns, how long can I take?", "route": "direct", "intent": "general_enquiry", "must_contain": ["31 January"]}
+{"id": "g15", "customer": "CUST-4821", "text": "What is your price match policy?", "route": "direct", "intent": "general_enquiry", "must_contain": ["I can help with"], "must_not_contain": ["policy says"]}

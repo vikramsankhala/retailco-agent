@@ -23,7 +23,8 @@ def _deny(reason: str) -> dict:
 
 async def pre_tool_guard(input_data: dict, tool_use_id: str | None, context) -> dict:
     name, args = input_data.get("tool_name", ""), input_data.get("tool_input", {}) or {}
-    if not name.startswith(f"mcp__{SERVER}__"):
+    server = name.split("__")[1] if name.startswith("mcp__") and name.count("__") >= 2 else None
+    if server not in config.ALLOWED_MCP_SERVERS:      # OWASP LLM03/LLM06: only approved servers
         return _deny(f"{name} is not available to the support agent.")
     if name in WRITE_TOOLS and config.kill_switch_on():
         return _deny("Write actions are paused by the operations team. Escalate instead.")
