@@ -54,10 +54,14 @@ def run(retriever) -> dict:
 
 def main() -> int:
     results = {name: run(make()) for name, make in CONFIGS.items()}
-    cols = list(next(iter(results.values())))
-    print(f"{'configuration':34s}" + "".join(f"{c[:15]:>16s}" for c in cols))
+    main_cols = ["hit@1", "recall@3", "MRR", "context recall", "abstain"]
+    print(f"{'configuration':30s}" + "".join(f"{c.replace('context ', 'ctx '):>11s}" for c in main_cols))
     for name, r in results.items():
-        print(f"{name:34s}" + "".join(f"{r[c]:16.2f}" for c in cols))
+        print(f"{name:30s}" + "".join(f"{r[c]:11.2f}" for c in main_cols))
+    kinds = [k for k in next(iter(results.values())) if k.startswith("hit@1 ")]
+    print(f"\n{'hit@1 by kind of question':30s}" + "".join(f"{k[6:][:14]:>16s}" for k in kinds))
+    for name, r in results.items():
+        print(f"{name:30s}" + "".join(f"{r[k]:16.2f}" for k in kinds))
     full = results["+ query rewriting (full)"]
     misses = [k for k, target in TARGETS.items() if full[k] < target]
     print("\ntargets met" if not misses else f"\nbelow target: {misses}")
